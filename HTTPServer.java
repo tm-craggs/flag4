@@ -1,53 +1,63 @@
-import java.io.*;
-import java.net.*;
+void main() throws IOException {
+	int portNumber = 18080;
+	IO.println("Starting server on port " + portNumber);
+	try (ServerSocket socket = new ServerSocket(portNumber)) {
 
-public class HTTPServer {
-
-	public static void main(String[] args) throws IOException {
-
-		int port = 18080;
-		System.out.println("starting on port:" + port);
-		ServerSocket socket = new ServerSocket(port);
-
-		boolean cont = true;
-		while(cont){
-
-			System.out.println("Listening...");
-			Socket in = socket.accept();
-			System.out.println("Connection established");
-
-			new Thread(() -> processReq(in)).start();
+		while (true) {
+			IO.println("Awaiting incoming connection...");
+			Socket incoming = socket.accept();
+			IO.println("Connection established!");
+			new Thread(() -> processRequest(incoming)).start();
 		}
 	}
+}
 
+static void processRequest(Socket connection) {
+	try {
+		BufferedReader input = new BufferedReader(
+				new InputStreamReader(connection.getInputStream())
+		);
+		Writer output = new OutputStreamWriter(
+				connection.getOutputStream()
+		);
 
-	static void processReq(Socket conn) {
+		String firstLine = input.readLine();
+		IO.println("Received: " + firstLine);
 
-		try {
-			BufferedReader in = new BufferedReader;
-			new InputStreamReader(conn.getInputStream());
-			Writer out = new OutputStreamWriter(conn.getOutputStream());
+		if (firstLine == null || firstLine.isEmpty()) return;
 
-			String firstLn = input.readLine();
-			System.out.print("First line: " + firstLn);
-
-			if(firstLn == null || firstLn.isEmpty()){
-
-				return;
-
-			}
-
-			String currentLn;
-			while((currentLn = input.readLine()) != null && !currentLn.isEmpty()){
-
-				
-
-			}
-
-
-
+		String current;
+		while ((current = input.readLine()) != null && !current.isEmpty()) {
+			IO.println("Header: " + current);
 		}
 
-	}
+		if (firstLine.startsWith("GET")) {
+			String[] tokens = firstLine.split(" ");
+			String requestedPath = tokens[1];
 
+			String responseBody;
+			String statusLine;
+
+			if (requestedPath.equals("/") || requestedPath.equals("/index.html")) {
+				statusLine = "HTTP/1.1 200 OK";
+				responseBody = "<html><body><h1>Welcome to my Web Server</h1></body></html>";
+			} else {
+				statusLine = "HTTP/1.1 404 Not Found";
+				responseBody = "<html><body><h1>Page Not Found</h1></body></html>";
+			}
+
+			output.write(statusLine + "\r\n");
+			output.write("Content-Type: text/html\r\n");
+			output.write("Content-Length: " + responseBody.length() + "\r\n");
+			output.write("Connection: close\r\n");
+			output.write("\r\n");
+			output.write(responseBody);
+		}
+
+		output.flush();
+		connection.close();
+
+	} catch (IOException ex) {
+		System.err.println("Connection error: " + ex.getMessage());
+	}
 }
